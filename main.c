@@ -44,12 +44,11 @@ int main(void) {
         } else if (pid == 0) { //we are in the child process
             execvp(args[0], args);
         } else { //parent process
-            if (*args[n - 1] == '&')
+            if (*args[n - 1] != '&')
                 wait(NULL);
 
         }
 
-        should_run = 0;
     }
 
     return 0;
