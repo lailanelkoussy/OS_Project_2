@@ -19,30 +19,46 @@
 int parseString(char *line, char ***argv);
 
 int main(void) {
-    char **args;    /* command line (of 80) has max of 40 arguments */
+    char **args, **last;    /* command line (of 80) has max of 40 arguments */
     int should_run = 1;
-    char input[MAX_LINE];
+    char input[MAX_LINE] = "", lastin[MAX_LINE] /*previous instruction */, comp[3] ="!!";
     int n, i;
     pid_t pid;
+
     while (should_run) {
         printf("osh> ");
         fflush(stdout);
+
+        for (i = 0; i < MAX_LINE; i++) //transferring input onto history buffer
+            lastin[i] = input[i];
+
         //getting input
         scanf("%[^\n]%*c", input);
 
+        if (!(strcmp(input, "exit")))//exit
+            should_run = 0;
+
         //parsing the input into args
-
-        /* splits the input line into separate words */
         n = parseString(input, &args); // number of strings read
-        //forking
 
+        //forking
         pid = fork();
 
         if (pid < 0) { //could not fork
             fprintf(stderr, "Fork Failed");
             return -1;
         } else if (pid == 0) { //we are in the child process
-            execvp(args[0], args);
+            if (!(strcmp(input, comp))) {
+                if (!strcmp(lastin, ""))
+                    printf("No commands in history. \n");
+                else {
+                    parseString(lastin, &last);
+                    printf("%s \n", lastin);
+                    execvp(last[0], last);
+                }
+
+            } else
+                execvp(args[0], args);
         } else { //parent process
             if (*args[n - 1] != '&')
                 wait(NULL);
@@ -54,7 +70,7 @@ int main(void) {
     return 0;
 }
 
-int parseString(char *line, char ***argv) {
+int parseString(char *line, char ***argv) { //function obtained off of cs.nyu.edu
 
     char *buffer;
     int argc;
