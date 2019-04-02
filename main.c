@@ -18,11 +18,13 @@
 
 int parseString(char *line, char ***argv);
 
+void exec(char **arr, int n);
+
 int main(void) {
     char **args, **last;    /* command line (of 80) has max of 40 arguments */
     int should_run = 1;
-    char input[MAX_LINE] = "", lastin[MAX_LINE] /*previous instruction */, comp[3] ="!!";
-    int n, i;
+    char input[MAX_LINE] = "", lastin[MAX_LINE] /*previous instruction */, comp[3] = "!!";
+    int n, i, m;
     pid_t pid;
 
     while (should_run) {
@@ -41,28 +43,33 @@ int main(void) {
         //parsing the input into args
         n = parseString(input, &args); // number of strings read
 
+        if (n == 0)
+            should_run = 0;
+
         //forking
-        pid = fork();
+        if ((strcmp(input, "\n") != 0) && should_run)
+            pid = fork();
 
         if (pid < 0) { //could not fork
             fprintf(stderr, "Fork Failed");
             return -1;
         } else if (pid == 0) { //we are in the child process
-            if (!(strcmp(input, comp))) {
+            if (!(strcmp(input, comp))) { //if we get a history command
                 if (!strcmp(lastin, ""))
                     printf("No commands in history. \n");
                 else {
-                    parseString(lastin, &last);
+                    m = parseString(lastin, &last);
                     printf("%s \n", lastin);
-                    execvp(last[0], last);
+//                    execvp(last[0], last);
+                    exec(last, m);
                 }
 
             } else
-                execvp(args[0], args);
+//                execvp(args[0], args);
+                exec(args, n);
         } else { //parent process
-            if (*args[n - 1] != '&')
+            if (strcmp(args[n - 1], "&") != 0)
                 wait(NULL);
-
         }
 
     }
@@ -86,4 +93,49 @@ int parseString(char *line, char ***argv) { //function obtained off of cs.nyu.ed
         ++argc;
 
     return argc;
+}
+
+void exec(char **arr, int n) {
+    int i = n, j, fd;
+    FILE *fp;
+
+    if (!strcmp(arr[n - 1], "&")) { //removing the &
+        arr[n - 1] = 0;
+        i--;
+    }
+
+    if (i > 1) {
+        if (!strcmp(arr[i - 2], "<")) { //reading from a file
+
+            fp = fopen(arr[i - 1], "r");
+            arr[i - 1] = 0;
+            arr[i - 2] = 0;
+            fd = fileno(fp);
+            dup2(fd, STDIN_FILENO);
+            execvp(arr[0], arr);
+            printf("Unable to execute command \n");
+            exit(-1);
+
+        } else if (!strcmp(arr[i - 2], ">")) { //writing to a file
+
+            fp = fopen(arr[i - 1], "a");
+            arr[i - 1] = 0;
+            arr[i - 2] = 0;
+            fd = fileno(fp);
+            dup2(fd, STDOUT_FILENO);
+            execvp(arr[0], arr);
+            printf("Unable to execute command \n");
+            exit(-1);
+
+        }
+
+        execvp(arr[0], arr);
+        printf("Unable to execute command \n");
+        exit(-1);
+
+    }
+    execvp(arr[0], arr);
+    printf("Unable to execute command \n");
+    exit(-1);
+
 }
