@@ -1,8 +1,10 @@
 /**
  * Simple shell interface program.
  *
- * Operating System Concepts - Tenth Edition
- * Copyright John Wiley & Sons - 2018
+ * Student: Laila N ElKoussy
+ * ID# : 900160812
+ *
+ * Note: Some of this code has been taken from the textbook. Any other source of code is mentioned in the comments
  */
 
 #include <unistd.h>
@@ -10,9 +12,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_LINE 80
 #define MAX_TOKS 40
+#define READ_END 0
+#define WRITE_END 1
 #define DELIMITERS " \t"
 
 
@@ -60,16 +65,17 @@ int main(void) {
                 else {
                     m = parseString(lastin, &last);
                     printf("%s \n", lastin);
-//                    execvp(last[0], last);
+                    //execvp(last[0], last);
                     exec(last, m);
                 }
 
             } else
-//                execvp(args[0], args);
+                //execvp(args[0], args);
                 exec(args, n);
         } else { //parent process
             if (strcmp(args[n - 1], "&") != 0)
-                wait(NULL);
+                waitpid(pid, NULL, 0);
+
         }
 
     }
@@ -81,6 +87,7 @@ int parseString(char *line, char ***argv) { //function obtained off of cs.nyu.ed
 
     char *buffer;
     int argc;
+
 
     buffer = (char *) malloc(strlen(line) * sizeof(char));
     strcpy(buffer, line);
@@ -96,15 +103,78 @@ int parseString(char *line, char ***argv) { //function obtained off of cs.nyu.ed
 }
 
 void exec(char **arr, int n) {
-    int i = n, j, fd;
+    int i = n, j, fd, k, pipeloc, l;
+    int pipes = 0;
     FILE *fp;
+    pid_t pid;
+    int fs[2];
 
     if (!strcmp(arr[n - 1], "&")) { //removing the &
         arr[n - 1] = 0;
         i--;
     }
+    for (k = 0; k < i; k++) {
+        if (!strcmp(arr[k], "|")) {
+            pipes = 1;
+            pipeloc = k;
+            arr[pipeloc] = 0;
+        }
+    }
 
-    if (i > 1) {
+    if (pipes) {
+
+        /* create the pipe */
+        if (pipe(fs) == -1) {
+            fprintf(stderr, "Pipe failed");
+            exit(-1);
+        }
+        /* fork a child process */
+        pid = fork();
+        if (pid < 0) { /* error occurred */
+            fprintf(stderr, "Fork Failed");
+            exit(-1);
+        }
+        if (pid > 0) { //parent
+            waitpid(pid, NULL, 0);
+            /* close the unused end of the pipe */
+            close(fs[WRITE_END]);
+            /* read from the pipe */
+            dup2(fs[READ_END], STDIN_FILENO);
+
+            //  printf("3arr[0]:\n %s\n", arr[0]);
+
+            char **args2;
+            int c = 0;
+            for (l = pipeloc + 1; arr[l] != NULL; l++) //removing the instruction at the beginning of the array
+            {
+                args2[c] = arr[l];
+                c++;
+            }
+            args2[c] = arr[l];
+
+            /* close the read end of the pipe */
+            close(fs[READ_END]);
+            execvp(args2[0], args2);
+            printf("Unable to execute command \n");
+            exit(-1);
+
+
+        } else {
+            //child process
+            // close the unused end of the pipe
+            close(fs[READ_END]);
+            // write to the pipe
+            dup2(fs[WRITE_END], STDOUT_FILENO);
+
+            /* close the write end of the pipe */
+            close(fs[WRITE_END]);
+
+            execvp(arr[0], arr);
+            printf("Unable to execute command \n");
+            exit(-1);
+        }
+
+    } else if (i > 1) {
         if (!strcmp(arr[i - 2], "<")) { //reading from a file
 
             fp = fopen(arr[i - 1], "r");
