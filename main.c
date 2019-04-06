@@ -206,6 +206,7 @@ void exec(char **arr, int n) {
         printf("Unable to execute command \n");
         exit(-1);
 
+
     }
     execvp(arr[0], arr);
     printf("Unable to execute command \n");
