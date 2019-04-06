@@ -39,10 +39,11 @@ int main(void) {
         for (i = 0; i < MAX_LINE; i++) //transferring input onto history buffer
             lastin[i] = input[i];
 
+        strcpy(input, "");
         //getting input
         scanf("%[^\n]%*c", input);
 
-        if (!(strcmp(input, "exit")))//exit
+        if (!(strcmp(input, "exit"))) //exit
             should_run = 0;
 
         //parsing the input into args
@@ -52,7 +53,7 @@ int main(void) {
             should_run = 0;
 
         //forking
-        if ((strcmp(input, "\n") != 0) && should_run)
+        if ((strcmp(input, "") != 0) && should_run)
             pid = fork();
 
         if (pid < 0) { //could not fork
@@ -73,10 +74,12 @@ int main(void) {
                 //execvp(args[0], args);
                 exec(args, n);
         } else { //parent process
-            if (strcmp(args[n - 1], "&") != 0)
-                waitpid(pid, NULL, 0);
+            if (n > 0)
+                if (strcmp(args[n - 1], "&") != 0)
+                    waitpid(pid, NULL, 0);
 
         }
+
 
     }
 
